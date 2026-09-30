@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { classifyClaimRecord, decideClaimRecord, releaseClaimPaymentRecord, submitClaimRecord } from "@/lib/data/claims";
 import { createDepartmentRecord, updateDepartmentRecord } from "@/lib/data/departments";
 import type { ClaimType } from "@/lib/data/types";
+import { suggestClaimCategory } from "@/lib/ai/classify";
+import { createClient } from "@/lib/supabase/server";
 
 const claimTypes: ClaimType[] = ["petty_cash", "expense", "travel", "others"];
 
@@ -43,6 +45,17 @@ export async function submitClaim(formData: FormData): Promise<void> {
     });
   } catch (error) {
     fail(error instanceof Error ? error.message : "Could not save claim. Please try again.");
+  }
+  const suggestion = await suggestClaimCategory({ title, description, items: descriptions.map((item) => ({ description: item })) });
+  if (suggestion?.category && suggestion.confidence !== null) {
+    const supabase = await createClient();
+    const { error } = await supabase.from("claims").update({
+      suggested_category: suggestion.category,
+      suggested_category_confidence: suggestion.confidence,
+      suggested_category_source: suggestion.source,
+      review_status: "unreviewed",
+    }).eq("id", claimId);
+    if (error) console.error("Could not save the optional category suggestion", error.message);
   }
   revalidatePath("/claims");
   revalidatePath("/");

@@ -55,6 +55,10 @@ export type Claim = {
   approved_at: string | null;
   rejected_at: string | null;
   paid_at: string | null;
+  suggested_category: string | null;
+  suggested_category_source: string | null;
+  suggested_category_confidence: number | null;
+  review_status: string;
   created_at: string;
   department: Department | null;
   claim_items: ClaimItem[];

@@ -47,11 +47,17 @@ export default async function ClaimDetailPage({ params, searchParams }: { params
             </table></div>
           </section>
 
+          {claim.status === "submitted" && claim.suggested_category && <section className="panel border-[#d8e8e1] bg-[#f4f8f5] p-5 sm:p-6">
+            <div className="page-kicker">AI suggestion · Review required</div>
+            <div className="mt-1 flex flex-wrap items-baseline gap-2"><h2 className="text-base font-bold">{claim.suggested_category}</h2><span className="text-[11px] font-medium text-slate-500">{claim.suggested_category_confidence === null ? "Confidence unavailable" : `${Math.round(claim.suggested_category_confidence * 100)}% confidence`}</span></div>
+            <p className="mt-1 text-xs text-slate-500">Suggested by {claim.suggested_category_source ?? "AI"}. Finance reviews and confirms or changes this category.</p>
+          </section>}
+
           {claim.status === "submitted" && <section className="panel p-5 sm:p-6">
             <div className="mb-4"><div className="page-kicker">Finance review</div><h2 className="mt-1 text-base font-bold">Classify this claim</h2><p className="mt-1 text-xs text-slate-500">Choose a category for the expense lines and confirm whether this is petty cash.</p></div>
             <form action={classifyClaimAction} className="space-y-4">
               <input type="hidden" name="claim_id" value={claim.id} />
-              <label><span className="field-label">Category</span><input className="field" name="category" placeholder="e.g. Stationery" defaultValue={claim.claim_items?.find((item) => item.category)?.category ?? ""} required maxLength={80} /></label>
+              <label><span className="field-label">Category</span><input className="field" name="category" placeholder="e.g. Stationery" defaultValue={claim.suggested_category ?? claim.claim_items?.find((item) => item.category)?.category ?? ""} required maxLength={80} /></label>
               <label className="flex cursor-pointer items-center gap-2.5 text-xs text-slate-600"><input name="is_petty_cash" type="checkbox" defaultChecked={claim.is_petty_cash} className="size-4 accent-[#24594d]" />Confirm petty-cash claim</label>
               <button className="button button-primary" type="submit">Classify claim <span aria-hidden="true">→</span></button>
             </form>
