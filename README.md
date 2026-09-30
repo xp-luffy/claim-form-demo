@@ -1,6 +1,6 @@
-# vibe-stack-supabase
+# Fieldnote — Staff Claims
 
-Next.js 15 + Supabase starter for shipping vibe-coded apps fast. Clone, provision, build.
+Staff expense claims with voucher tracking, classification, approval, payment records, and an audit trail.
 
 ## Stack
 
@@ -13,29 +13,21 @@ Next.js 15 + Supabase starter for shipping vibe-coded apps fast. Clone, provisio
 | Package manager | Bun |
 | Deploy | Vercel |
 
-## Quick start
+## Run locally
 
 ```bash
-bun install
-cp .env.example .env.local   # fill in your Supabase keys
-bun dev
+pnpm install
+Copy-Item .env.example .env.local
+# Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+pnpm dev
 ```
 
-Open http://localhost:3000. Edit `app/page.tsx` to start building.
+Open http://localhost:3000 and create an account. See [role setup](docs/ROLE_ADMIN.md) to grant Finance or Approver permissions. AI category suggestions are optional; see [AI setup](docs/AI_CLASSIFICATION.md).
 
 ## Provisioning a new project
 
-Use the `/new-vibe-project <name>` skill (see `claude-dotfiles` repo) which:
-1. Clones this template and renames it
-2. Creates a new GitHub repo and pushes
-3. Creates a Supabase project and injects URL + anon key
-4. Creates a Vercel project linked to the GitHub repo
-5. Triggers first deploy and returns the preview URL
+The Supabase schema is applied through the SQL migrations in `supabase/migrations/`. Vercel needs the same Supabase URL and publishable key as project environment variables. Set `ANTHROPIC_API_KEY` there if AI suggestions are enabled.
 
-## Working with AI
+## Roles
 
-See [CLAUDE.md](CLAUDE.md) for conventions. This repo is pre-wired for gstack — start with `/office-hours`.
-
-## Switching to Neon
-
-If you need Postgres without Supabase (e.g. prefer Drizzle ORM + Clerk for auth), a `vibe-stack-neon` variant is planned. For now: fork this and swap `@supabase/ssr` for `drizzle-orm` + `@neondatabase/serverless`, add Clerk or NextAuth.
+New accounts can submit and track their own claims. A Supabase project administrator assigns Finance and Approver roles; they cannot be self-assigned. See [role setup](docs/ROLE_ADMIN.md).

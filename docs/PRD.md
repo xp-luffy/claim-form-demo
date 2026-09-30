@@ -17,14 +17,14 @@ Staff across all departments submit expense claims on Excel sheets and paper for
 - **Audit Log** — every status change recorded.
 
 ## MVP (v1) Checklist
-- [ ] Create a claim with items (title, type, petty-cash flag, department, amount)
-- [ ] Auto-generate voucher number on submit
-- [ ] Classify a submitted claim (set category, mark petty cash)
-- [ ] Approve or reject a classified claim
-- [ ] Release payment for an approved claim
-- [ ] List/filter claims by status and department
-- [ ] View claim detail with full timeline (submit → classify → approve → pay)
-- [ ] Audit log for every status transition
+- [x] Create a claim with items (title, type, petty-cash flag, department, amount)
+- [x] Auto-generate voucher number on submit
+- [x] Classify a submitted claim (set category, mark petty cash)
+- [x] Approve or reject a classified claim
+- [x] Release payment for an approved claim
+- [x] List/filter claims by status and department
+- [x] View claim detail with full timeline (submit → classify → approve → pay)
+- [x] Audit log for every status transition
 
 ## Non-Goals (v1)
 - No login/auth (demo-first, locked down later)

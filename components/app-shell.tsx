@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { signOutAction } from "@/lib/actions/auth-actions";
 
 const links = [
   { href: "/", label: "Overview", icon: "◫" },
@@ -16,6 +17,10 @@ const links = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  if (pathname === "/login" || pathname === "/signup") {
+    return <main className="min-h-screen bg-[#f8f9f7] px-5 py-12">{children}</main>;
+  }
 
   return (
     <div className="app-frame flex">
@@ -53,6 +58,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="sidebar-foot">
           <strong className="block text-white">Staff claims</strong>
           A quieter way to keep things moving.
+          <form action={signOutAction} className="mt-4">
+            <button className="text-left text-xs font-semibold text-emerald-100 hover:text-white" type="submit">Sign out →</button>
+          </form>
         </div>
       </aside>
       <div className="min-w-0 flex-1">

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { approveClaimAction, classifyClaimAction, rejectClaimAction } from "@/lib/actions/claim-actions";
 import { listClaimAudit } from "@/lib/data/audit";
 import { getClaimById } from "@/lib/data/claims";
+import { currentUserRoles } from "@/lib/data/roles";
 
 const money = (amount: number, currency = "MYR") => new Intl.NumberFormat("en-MY", { style: "currency", currency }).format(Number(amount));
 const dateLabel = (value: string | null) => value ? new Intl.DateTimeFormat("en-MY", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "Not yet";
@@ -11,7 +12,7 @@ const actionLabels: Record<string, string> = { submit: "Claim submitted", classi
 
 export default async function ClaimDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; success?: string }> }) {
   const [{ id }, notices] = await Promise.all([params, searchParams]);
-  const [claim, audit] = await Promise.all([getClaimById(id), listClaimAudit(id)]);
+  const [claim, audit, roles] = await Promise.all([getClaimById(id), listClaimAudit(id), currentUserRoles()]);
   if (!claim) notFound();
 
   const payment = claim.payments?.find((record) => record.status === "released");
@@ -53,7 +54,7 @@ export default async function ClaimDetailPage({ params, searchParams }: { params
             <p className="mt-1 text-xs text-slate-500">Suggested by {claim.suggested_category_source ?? "AI"}. Finance reviews and confirms or changes this category.</p>
           </section>}
 
-          {claim.status === "submitted" && <section className="panel p-5 sm:p-6">
+          {claim.status === "submitted" && roles.includes("finance") && <section className="panel p-5 sm:p-6">
             <div className="mb-4"><div className="page-kicker">Finance review</div><h2 className="mt-1 text-base font-bold">Classify this claim</h2><p className="mt-1 text-xs text-slate-500">Choose a category for the expense lines and confirm whether this is petty cash.</p></div>
             <form action={classifyClaimAction} className="space-y-4">
               <input type="hidden" name="claim_id" value={claim.id} />
@@ -63,7 +64,9 @@ export default async function ClaimDetailPage({ params, searchParams }: { params
             </form>
           </section>}
 
-          {claim.status === "classified" && <section className="panel p-5 sm:p-6">
+          {claim.status === "submitted" && !roles.includes("finance") && <section className="panel p-5 sm:p-6"><div className="page-kicker">Awaiting finance review</div><h2 className="mt-1 text-base font-bold">Your claim is in review.</h2><p className="mt-1 text-xs text-slate-500">Finance will confirm the category before it moves to approval.</p></section>}
+
+          {claim.status === "classified" && roles.includes("approver") && <section className="panel p-5 sm:p-6">
             <div className="page-kicker">Approver review</div><h2 className="mt-1 text-base font-bold">Make a decision</h2><p className="mt-1 text-xs text-slate-500">Approve to send this to Finance, or reject it with a note.</p>
             <form className="mt-4" action={approveClaimAction}>
               <input type="hidden" name="claim_id" value={claim.id} />
@@ -71,6 +74,8 @@ export default async function ClaimDetailPage({ params, searchParams }: { params
               <div className="mt-3 flex flex-wrap gap-2"><button className="button button-primary" type="submit">Approve claim <span aria-hidden="true">→</span></button><button className="button button-danger" type="submit" formAction={rejectClaimAction}>Reject claim</button></div>
             </form>
           </section>}
+
+          {claim.status === "classified" && !roles.includes("approver") && <section className="panel p-5 sm:p-6"><div className="page-kicker">Awaiting approval</div><h2 className="mt-1 text-base font-bold">Your claim is ready for approval.</h2><p className="mt-1 text-xs text-slate-500">An approver will review the classified claim.</p></section>}
 
           {payment && <section className="panel p-5 sm:p-6">
             <div className="flex items-center justify-between gap-3"><div><div className="page-kicker">Payment released</div><h2 className="mt-1 text-base font-bold">{payment.reference}</h2></div><span className="status-pill status-paid">Paid</span></div>

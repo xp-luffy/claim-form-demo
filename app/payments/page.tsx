@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { releasePaymentAction } from "@/lib/actions/claim-actions";
 import { listPaymentClaims } from "@/lib/data/payments";
+import { currentUserHasRole } from "@/lib/data/roles";
 
 const money = (amount: number, currency = "MYR") => new Intl.NumberFormat("en-MY", { style: "currency", currency }).format(Number(amount));
 const dateLabel = (value: string | null) => value ? new Intl.DateTimeFormat("en-MY", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "—";
 
 export default async function PaymentsPage({ searchParams }: { searchParams: Promise<{ error?: string; success?: string }> }) {
-  const [claims, notices] = await Promise.all([listPaymentClaims(), searchParams]);
+  const [claims, notices, isFinance] = await Promise.all([listPaymentClaims(), searchParams, currentUserHasRole("finance")]);
   const ready = claims.filter((claim) => claim.status === "approved");
   const released = claims.filter((claim) => claim.status === "paid");
   return (
@@ -23,12 +24,12 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
         <div className="mb-3 flex items-end justify-between gap-3"><div><div className="page-kicker">Approved claims</div><h2 className="mt-1 text-lg font-semibold">Ready for release</h2></div><span className="text-[10px] text-slate-400">{ready.length} waiting</span></div>
         <div className="space-y-3">{ready.map((claim) => <article key={claim.id} className="panel grid gap-4 p-5 lg:grid-cols-[1fr_1.15fr] lg:items-center">
           <div className="min-w-0"><Link className="page-kicker hover:underline" href={`/claims/${claim.id}`}>{claim.voucher_number}</Link><h3 className="mt-1 truncate text-sm font-bold">{claim.title}</h3><p className="mt-1 text-[11px] text-slate-500">{claim.department?.name ?? "No department"} · approved {dateLabel(claim.approved_at)}</p><div className="mt-3 text-lg font-semibold tabular-nums">{money(claim.amount, claim.currency)}</div></div>
-          <form action={releasePaymentAction} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+          {isFinance ? <form action={releasePaymentAction} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
             <input type="hidden" name="claim_id" value={claim.id} />
             <label><span className="field-label">Payment method</span><select className="select" name="method" defaultValue="bank_transfer" required><option value="bank_transfer">Bank transfer</option><option value="cash">Cash</option><option value="cheque">Cheque</option></select></label>
             <label><span className="field-label">Payment reference</span><input className="field" name="reference" placeholder="e.g. BNI-12345" required maxLength={80} /></label>
             <button className="button button-primary" type="submit">Release payment</button>
-          </form>
+          </form> : <p className="text-xs text-slate-500">Awaiting Finance to record the payment release.</p>}
         </article>)}</div>
       </section>}
 
