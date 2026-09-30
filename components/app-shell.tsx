@@ -5,10 +5,12 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 const links = [
+  { href: "/", label: "Overview", icon: "◫" },
   { href: "/claims", label: "Claims", icon: "▤" },
   { href: "/claims/new", label: "New claim", icon: "+" },
   { href: "/payments", label: "Payments", icon: "↗" },
   { href: "/departments", label: "Departments", icon: "⌘" },
+  { href: "/audit", label: "Activity", icon: "◷" },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -23,7 +25,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         onClick={() => setMenuOpen(false)}
       />
       <aside className={`sidebar ${menuOpen ? "open" : ""}`}>
-        <Link className="brand" href="/claims" onClick={() => setMenuOpen(false)}>
+        <Link className="brand" href="/" onClick={() => setMenuOpen(false)}>
           <span className="brand-mark">f.</span> fieldnote
         </Link>
         <div className="nav-label">Workspace</div>
@@ -31,7 +33,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {links.map((link) => {
             const active = link.href === "/claims"
               ? pathname === "/claims" || pathname.startsWith("/claims/") && pathname !== "/claims/new"
-              : pathname === link.href || pathname.startsWith(`${link.href}/`);
+              : link.href === "/"
+                ? pathname === "/"
+                : pathname === link.href || pathname.startsWith(`${link.href}/`);
             return (
               <Link
                 key={link.href}
@@ -53,7 +57,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
       <div className="min-w-0 flex-1">
         <header className="mobile-header">
-          <Link className="brand" href="/claims">
+          <Link className="brand" href="/">
             <span className="brand-mark">f.</span> fieldnote
           </Link>
           <button className="mobile-menu" onClick={() => setMenuOpen(true)} aria-label="Open navigation">☰</button>

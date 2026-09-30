@@ -20,10 +20,10 @@ function dateLabel(value: string | null) {
   return value ? new Intl.DateTimeFormat("en-MY", { day: "numeric", month: "short", year: "numeric" }).format(new Date(value)) : "—";
 }
 
-export default async function ClaimsPage({ searchParams }: { searchParams: Promise<{ status?: string; department?: string }> }) {
+export default async function ClaimsPage({ searchParams }: { searchParams: Promise<{ status?: string; department?: string; sort?: string }> }) {
   const params = await searchParams;
   const [claims, departments] = await Promise.all([
-    listClaims({ status: params.status, department: params.department }),
+    listClaims({ status: params.status, department: params.department, sort: params.sort }),
     listDepartments(),
   ]);
 
@@ -44,12 +44,17 @@ export default async function ClaimsPage({ searchParams }: { searchParams: Promi
             const href = new URLSearchParams();
             if (filter.id !== "all") href.set("status", filter.id);
             if (params.department) href.set("department", params.department);
+            if (params.sort) href.set("sort", params.sort);
             const active = (params.status ?? "all") === filter.id;
             return <Link key={filter.id} className={`border-b-2 px-3 py-3 text-[11px] font-semibold ${active ? "border-[#24594d] text-[#24594d]" : "border-transparent text-slate-500 hover:text-slate-800"}`} href={`/claims${href.size ? `?${href}` : ""}`} aria-current={active ? "page" : undefined}>{filter.label}</Link>;
           })}
         </nav>
         <form method="get" className="flex items-center gap-2 pb-2">
           {params.status && <input type="hidden" name="status" value={params.status} />}
+          <label className="sr-only" htmlFor="claim-sort">Sort claims</label>
+          <select id="claim-sort" name="sort" defaultValue={params.sort ?? "priority"} className="rounded-md border border-[#e1e6e2] bg-white px-2.5 py-2 text-[10px] text-slate-600">
+            <option value="priority">Priority</option><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="amount_desc">Highest amount</option>
+          </select>
           <label className="sr-only" htmlFor="department-filter">Filter by department</label>
           <select id="department-filter" name="department" defaultValue={params.department ?? ""} className="rounded-md border border-[#e1e6e2] bg-white px-2.5 py-2 text-[10px] text-slate-600">
             <option value="">All departments</option>
