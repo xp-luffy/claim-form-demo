@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { classifyClaimRecord, decideClaimRecord, releaseClaimPaymentRecord, submitClaimRecord } from "@/lib/data/claims";
+import { createDepartmentRecord, updateDepartmentRecord } from "@/lib/data/departments";
 import type { ClaimType } from "@/lib/data/types";
 
 const claimTypes: ClaimType[] = ["petty_cash", "expense", "travel", "others"];
@@ -21,62 +22,110 @@ export async function submitClaim(formData: FormData): Promise<void> {
   const amounts = formData.getAll("item_amount").map((value) => Number(value));
 
   if (!title) fail("Title is required.");
+  if (title.length > 120) fail("Keep the claim title under 120 characters.");
+  if (description.length > 1000) fail("Keep the description under 1,000 characters.");
   if (!departmentId) fail("Choose a department.");
   if (!claimTypes.includes(claimType)) fail("Choose a valid claim type.");
-  if (!descriptions.length || descriptions.some((item) => !item)) fail("Add at least one line item description.");
-  if (amounts.length !== descriptions.length || amounts.some((amount) => !Number.isFinite(amount) || amount <= 0)) {
+  if (!descriptions.length || descriptions.some((item) => !item || item.length > 200)) fail("Add at least one line item description under 200 characters.");
+  if (amounts.length !== descriptions.length || amounts.some((amount) => !Number.isFinite(amount) || amount <= 0 || Math.round(amount * 100) < 1)) {
     fail("Enter a valid amount for every line item.");
   }
 
-  const total = Math.round(amounts.reduce((sum, amount) => sum + amount, 0) * 100) / 100;
-  const supabase = await createClient();
-  const { data: voucherNumber, error: voucherError } = await supabase.rpc("next_claim_voucher_number");
-  if (voucherError || !voucherNumber) fail("Could not assign a voucher number. Please try again.");
-
-  const { data: claim, error: claimError } = await supabase
-    .from("claims")
-    .insert({
-      voucher_number: voucherNumber,
-      department_id: departmentId,
-      claim_type: claimType,
+  let claimId: string;
+  try {
+    claimId = await submitClaimRecord({
       title,
       description: description || null,
-      amount: total,
-      currency: "MYR",
-      status: "submitted",
-      is_petty_cash: isPettyCash,
-      submitted_at: new Date().toISOString(),
-    })
-    .select("id")
-    .single();
-
-  if (claimError || !claim) fail(`Could not save claim. ${claimError?.message ?? "Please try again."}`);
-
-  const { error: itemsError } = await supabase.from("claim_items").insert(
-    descriptions.map((itemDescription, index) => ({
-      claim_id: claim.id,
-      description: itemDescription,
-      amount: Math.round(amounts[index] * 100) / 100,
-    })),
-  );
-
-  if (itemsError) {
-    await supabase.from("claims").delete().eq("id", claim.id);
-    fail(`Could not save claim items. ${itemsError.message}`);
+      departmentId,
+      claimType,
+      isPettyCash,
+      items: descriptions.map((itemDescription, index) => ({ description: itemDescription, amount: Math.round(amounts[index] * 100) / 100 })),
+    });
+  } catch (error) {
+    fail(error instanceof Error ? error.message : "Could not save claim. Please try again.");
   }
-
-  const { error: auditError } = await supabase.from("audit_logs").insert({
-    entity_type: "claim",
-    entity_id: claim.id,
-    action: "submit",
-    detail: JSON.stringify({ tool: "submit_claim", voucher_number: voucherNumber, actor: "staff" }),
-  });
-
-  if (auditError) {
-    await supabase.from("claims").delete().eq("id", claim.id);
-    fail(`Could not record the claim submission. ${auditError.message}`);
-  }
-
   revalidatePath("/claims");
-  redirect(`/claims/${claim.id}`);
+  revalidatePath("/");
+  redirect(`/claims/${claimId}`);
+}
+
+function value(formData: FormData, name: string) {
+  return String(formData.get(name) ?? "").trim();
+}
+
+export async function classifyClaimAction(formData: FormData): Promise<void> {
+  const id = value(formData, "claim_id");
+  const category = value(formData, "category");
+  const isPettyCash = formData.get("is_petty_cash") === "on";
+  if (!id || !category || category.length > 80) redirect(`/claims/${id}?error=${encodeURIComponent("Enter a category under 80 characters before classifying.")}`);
+  try { await classifyClaimRecord(id, category, isPettyCash); }
+  catch (error) { redirect(`/claims/${id}?error=${encodeURIComponent(error instanceof Error ? error.message : "Could not classify this claim.")}`); }
+  revalidatePath(`/claims/${id}`);
+  revalidatePath("/claims");
+  revalidatePath("/");
+  redirect(`/claims/${id}?success=classified`);
+}
+
+async function decisionAction(formData: FormData, decision: "approved" | "rejected"): Promise<void> {
+  const id = value(formData, "claim_id");
+  if (!id) redirect("/claims");
+  const note = value(formData, "note");
+  if (note.length > 500) redirect(`/claims/${id}?error=${encodeURIComponent("Keep the decision note under 500 characters.")}`);
+  try { await decideClaimRecord(id, decision, note); }
+  catch (error) { redirect(`/claims/${id}?error=${encodeURIComponent(error instanceof Error ? error.message : "Could not save this decision.")}`); }
+  revalidatePath(`/claims/${id}`);
+  revalidatePath("/claims");
+  revalidatePath("/");
+  revalidatePath("/payments");
+  redirect(`/claims/${id}?success=${decision}`);
+}
+
+export async function approveClaimAction(formData: FormData): Promise<void> {
+  await decisionAction(formData, "approved");
+}
+
+export async function rejectClaimAction(formData: FormData): Promise<void> {
+  await decisionAction(formData, "rejected");
+}
+
+export async function releasePaymentAction(formData: FormData): Promise<void> {
+  const id = value(formData, "claim_id");
+  const method = value(formData, "method");
+  const reference = value(formData, "reference");
+  if (!id) redirect("/payments");
+  if (!(method === "bank_transfer" || method === "cash" || method === "cheque") || !reference || reference.length > 80) {
+    redirect(`/payments?error=${encodeURIComponent("Choose a payment method and enter its reference.")}`);
+  }
+  try { await releaseClaimPaymentRecord(id, method, reference); }
+  catch (error) { redirect(`/payments?error=${encodeURIComponent(error instanceof Error ? error.message : "Could not release this payment.")}`); }
+  revalidatePath(`/claims/${id}`);
+  revalidatePath("/claims");
+  revalidatePath("/");
+  revalidatePath("/payments");
+  redirect(`/payments?success=${encodeURIComponent("Payment released and recorded.")}`);
+}
+
+export async function createDepartmentAction(formData: FormData): Promise<void> {
+  const name = value(formData, "name");
+  const code = value(formData, "code").toUpperCase();
+  if (!name || !code) redirect(`/departments?error=${encodeURIComponent("Enter a department name and code.")}`);
+  try { await createDepartmentRecord(name, code); }
+  catch (error) { redirect(`/departments?error=${encodeURIComponent(error instanceof Error ? error.message : "Could not add department.")}`); }
+  revalidatePath("/departments");
+  revalidatePath("/");
+  revalidatePath("/claims/new");
+  redirect(`/departments?success=${encodeURIComponent(`${name} was added.`)}`);
+}
+
+export async function updateDepartmentAction(formData: FormData): Promise<void> {
+  const id = value(formData, "department_id");
+  const name = value(formData, "name");
+  const code = value(formData, "code").toUpperCase();
+  if (!id || !name || !code) redirect(`/departments?error=${encodeURIComponent("Enter a department name and code.")}`);
+  try { await updateDepartmentRecord(id, name, code); }
+  catch (error) { redirect(`/departments?error=${encodeURIComponent(error instanceof Error ? error.message : "Could not update department.")}`); }
+  revalidatePath("/departments");
+  revalidatePath("/");
+  revalidatePath("/claims/new");
+  redirect(`/departments?success=${encodeURIComponent(`${name} was updated.`)}`);
 }
