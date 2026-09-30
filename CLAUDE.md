@@ -19,3 +19,5 @@
 
 - Added dashboard and department tools to the application
 - added optional AI claim suggestions feature
+- added auth and role-based access control
+- existing memory already includes claim submission, approval, payment, dashboard, department tools, and AI claim suggestions
