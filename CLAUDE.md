@@ -18,3 +18,4 @@
 ## Notes
 
 - Added dashboard and department tools to the application
+- added optional AI claim suggestions feature
